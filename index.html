@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BreatheBetter NL – Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+    }
+    header {
+      background: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: bold;
+      border-bottom: 1px solid #ddd;
+    }
+    #map {
+      height: 60vh;
+    }
+    .card {
+      background: white;
+      margin: 20px auto;
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 550px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    input, button {
+      padding: 6px 8px;
+      margin-top: 6px;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      cursor: pointer;
+      padding: 4px 8px;
+      margin: 2px 0;
+      background: #f0f0f0;
+      border-radius: 4px;
+    }
+    li:hover {
+      background: #e0e0e0;
+    }
+  </style>
+</head>
+<body>
+
+<header>BreatheBetter – Netherlands Air Quality</header>
+
+<div id="map"></div>
+
+<div class="card">
+  <h3>Air Quality Snapshot</h3>
+  <p><strong>Station:</strong> <span id="station-name">--</span></p>
+  <p><strong>PM2.5:</strong> <span id="pm25">--</span> µg/m³</p>
+  <p><strong>AQI:</strong> <span id="aqi">--</span></p>
+  <p><strong>Recommendation:</strong> <span id="rec">--</span></p>
+
+  <hr>
+  <h4>Available Stations (page 1)</h4>
+  <ul id="station-list">
+    <li>Loading stations...</li>
+  </ul>
+
+  <hr>
+  <h4>Search by Station Number</h4>
+  <input id="station-input" type="text" placeholder="Enter station number (e.g. NL49002)" />
+  <button id="search-btn">Search</button>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+const BASE_URL = "https://iq.luchtmeetnet.nl/open_api";
+
+// AQI Conversion (US Standard)
+function pm25ToAQI(pm) {
+  pm = parseFloat(pm);
+  if (pm <= 12) return Math.round((50 / 12) * pm);
+  if (pm <= 35.4) return Math.round(50 + (pm - 12) * (50 / 23.4));
+  if (pm <= 55.4) return Math.round(100 + (pm - 35.4) * (50 / 20));
+  if (pm <= 150.4) return Math.round(150 + (pm - 55.4) * (100 / 95));
+  return 300;
+}
+
+function getRecommendation(aqi) {
+  if (aqi <= 50) return "Great day for outdoor activity!";
+  if (aqi <= 100) return "Moderate — sensitive groups should take caution.";
+  return "Unhealthy — limit outdoor activity.";
+}
+
+// Leaflet map
+const map = L.map("map").setView([52.1, 5.2], 8);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "&copy; OpenStreetMap contributors"
+}).addTo(map);
+
+let marker;
+
+// Fetch station details
+async function fetchStation(stationNumber) {
+  try {
+    const res = await fetch(`${BASE_URL}/stations/${stationNumber}`);
+    if (!res.ok) throw new Error("Station not found");
+    const data = await res.json();
+    return data.data;
+  } catch (err) {
+    console.error("fetchStation error", err);
+    return null;
+  }
+}
+
+// Fetch latest PM2.5 measurement in time range
+async function fetchPM25(stationNumber) {
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(now.getDate() - 7); // Last 7 days
+
+  const res = await fetch(
+    `${BASE_URL}/measurements?order_direction=desc&order_by=timestamp_measured&formula=PM25&start=${start.toISOString()}&end=${now.toISOString()}&station_number=${stationNumber}`
+  );
+  const data = await res.json();
+  if (!data.data || !Array.isArray(data.data) || data.data.length === 0) return null;
+  return data.data[0].value;
+}
+
+// Main function
+async function searchStation() {
+  const stationNumber = document.getElementById("station-input").value.trim();
+  if (!stationNumber) {
+    alert("Please enter a station number");
+    return;
+  }
+
+  // Reset UI
+  document.getElementById("station-name").textContent = "Loading...";
+  document.getElementById("pm25").textContent = "--";
+  document.getElementById("aqi").textContent = "--";
+  document.getElementById("rec").textContent = "--";
+
+  const station = await fetchStation(stationNumber);
+  if (!station) {
+    document.getElementById("station-name").textContent = "Station not found";
+    document.getElementById("rec").textContent = "Error loading data.";
+    return;
+  }
+
+  const pm25 = await fetchPM25(stationNumber);
+
+  // Connect station info to UI
+  document.getElementById("station-name").textContent = station.location || station.number || "Unknown";
+  document.getElementById("pm25").textContent = pm25 !== null ? `${pm25} µg/m³` : "No data";
+  document.getElementById("aqi").textContent = pm25 !== null ? pm25ToAQI(pm25) : "No data";
+
+  if (pm25 !== null) {
+    const aqi = pm25ToAQI(pm25);
+    document.getElementById("rec").textContent = getRecommendation(aqi);
+  } else {
+    document.getElementById("rec").textContent = "No PM2.5 data available. Try another station or check back later.";
+  }
+
+  // Update map
+  if (station.geometry && Array.isArray(station.geometry.coordinates)) {
+    const [lng, lat] = station.geometry.coordinates;
+    map.setView([lat, lng], 12);
+    if (marker) map.removeLayer(marker);
+    marker = L.marker([lat, lng]).addTo(map)
+      .bindPopup(`<b>${station.location || station.number}</b><br>PM2.5: ${pm25 !== null ? pm25 : "No data"} µg/m³`)
+      .openPopup();
+  }
+}
+
+// Load stations on page 1 and connect clicks to search
+async function loadStations() {
+  const listEl = document.getElementById("station-list");
+  listEl.innerHTML = "<li>Loading stations...</li>";
+
+  try {
+    let allStations = [];
+    for (let page = 1; page <= 5; page++) { // Adjust page count as needed
+      const res = await fetch(`${BASE_URL}/stations?page=${page}`);
+      const data = await res.json();
+      if (!data.data || !Array.isArray(data.data)) break;
+      allStations = allStations.concat(data.data);
+    }
+
+    listEl.innerHTML = "";
+    allStations.forEach(station => {
+      const li = document.createElement("li");
+      li.textContent = `${station.number} – ${station.location}`;
+      li.addEventListener("click", () => {
+        document.getElementById("station-input").value = station.number;
+        searchStation();
+      });
+      listEl.appendChild(li);
+    });
+  } catch (err) {
+    console.error("loadStations error", err);
+    listEl.innerHTML = "<li>Error loading stations.</li>";
+  }
+}
+
+// Event listener
+document.getElementById("search-btn").addEventListener("click", searchStation);
+
+// On page load: load station list and show a default station
+window.addEventListener("load", () => {
+  loadStations();
+  const defaultStation = "NL49002";
+  document.getElementById("station-input").value = defaultStation;
+  searchStation();
+});
+</script>
+
+</body>
+</html>
