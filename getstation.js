@@ -7,7 +7,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
   try {
-    // Fetch from external air quality API
     const response = await fetch('https://iq.luchtmeetnet.nl/open_api/stations?page=1');
     const data = await response.json();
     res.status(200).json(data);

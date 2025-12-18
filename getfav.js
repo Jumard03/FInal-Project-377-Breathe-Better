@@ -6,7 +6,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
   try {
-    // Fetch from Supabase
+  
     const { data, error } = await supabase.from('favorites').select('*');
     if (error) throw error;
     res.status(200).json(data);
