@@ -1,11 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
+
+<html>
 <head>
-  <meta charset="UTF-8" />
   <title>BreatheBetter NL – Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Leaflet CSS -->
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
@@ -78,13 +77,13 @@
   <button id="search-btn">Search</button>
 </div>
 
-<!-- Leaflet JS -->
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 const BASE_URL = "https://iq.luchtmeetnet.nl/open_api";
 
-// AQI Conversion (US Standard)
+
 function pm25ToAQI(pm) {
   pm = parseFloat(pm);
   if (pm <= 12) return Math.round((50 / 12) * pm);
@@ -100,7 +99,7 @@ function getRecommendation(aqi) {
   return "Unhealthy — limit outdoor activity.";
 }
 
-// Leaflet map
+
 const map = L.map("map").setView([52.1, 5.2], 8);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "&copy; OpenStreetMap contributors"
@@ -121,11 +120,11 @@ async function fetchStation(stationNumber) {
   }
 }
 
-// Fetch latest PM2.5 measurement in time range
+
 async function fetchPM25(stationNumber) {
   const now = new Date();
   const start = new Date(now);
-  start.setDate(now.getDate() - 7); // Last 7 days
+  start.setDate(now.getDate() - 7); 
 
   const res = await fetch(
     `${BASE_URL}/measurements?order_direction=desc&order_by=timestamp_measured&formula=PM25&start=${start.toISOString()}&end=${now.toISOString()}&station_number=${stationNumber}`
@@ -135,7 +134,7 @@ async function fetchPM25(stationNumber) {
   return data.data[0].value;
 }
 
-// Main function
+
 async function searchStation() {
   const stationNumber = document.getElementById("station-input").value.trim();
   if (!stationNumber) {
@@ -143,7 +142,7 @@ async function searchStation() {
     return;
   }
 
-  // Reset UI
+
   document.getElementById("station-name").textContent = "Loading...";
   document.getElementById("pm25").textContent = "--";
   document.getElementById("aqi").textContent = "--";
@@ -158,7 +157,7 @@ async function searchStation() {
 
   const pm25 = await fetchPM25(stationNumber);
 
-  // Connect station info to UI
+  
   document.getElementById("station-name").textContent = station.location || station.number || "Unknown";
   document.getElementById("pm25").textContent = pm25 !== null ? `${pm25} µg/m³` : "No data";
   document.getElementById("aqi").textContent = pm25 !== null ? pm25ToAQI(pm25) : "No data";
@@ -170,7 +169,7 @@ async function searchStation() {
     document.getElementById("rec").textContent = "No PM2.5 data available. Try another station or check back later.";
   }
 
-  // Update map
+ 
   if (station.geometry && Array.isArray(station.geometry.coordinates)) {
     const [lng, lat] = station.geometry.coordinates;
     map.setView([lat, lng], 12);
@@ -181,7 +180,7 @@ async function searchStation() {
   }
 }
 
-// Load stations on page 1 and connect clicks to search
+
 async function loadStations() {
   const listEl = document.getElementById("station-list");
   listEl.innerHTML = "<li>Loading stations...</li>";
@@ -211,10 +210,10 @@ async function loadStations() {
   }
 }
 
-// Event listener
+
 document.getElementById("search-btn").addEventListener("click", searchStation);
 
-// On page load: load station list and show a default station
+
 window.addEventListener("load", () => {
   loadStations();
   const defaultStation = "NL49002";
