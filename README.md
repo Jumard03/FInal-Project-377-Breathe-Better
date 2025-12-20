@@ -15,3 +15,8 @@ BreatheBetter NL is a web application that provides real-time air quality inform
 ## Link to Developer Manual
 
 [Developer Manual](docs.md)
+
+## Team Contributions
+
+- Frontend (UI, station search, client-side logic): Jumar
+- Backend (Express API, Supabase integration, favorites storage): Kabya
